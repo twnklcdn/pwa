@@ -1,32 +1,52 @@
-const CACHE_NAME = `my-sample-app-cache-v1`;
+const CACHE_NAME = 'offline';
+const OFFLINE_URL = 'offline.html';
 
-// Use the install event to pre-cache all initial resources.
-self.addEventListener('install', event => {
+self.addEventListener('install', function(event) {
+  console.log('[ServiceWorker] Install');
+  
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE_NAME);
-    cache.addAll(['https://twnklcdn.github.io/pwa/']);
+    // Setting {cache: 'reload'} in the new request will ensure that the response
+    // isn't fulfilled from the HTTP cache; i.e., it will be from the network.
+    await cache.add(new Request(OFFLINE_URL, {cache: 'reload'}));
   })());
+  
+  self.skipWaiting();
 });
 
-self.addEventListener('fetch', event => {
-  event.respondWith((async () => {
-    const cache = await caches.open(CACHE_NAME);
-
-    try {
-      // Try to fetch the resource from the network.
-      const fetchResponse = await fetch(event.request);
-
-      // Save the resource in the cache.
-      cache.put(event.request, fetchResponse.clone());
-
-      // And return it.
-      return fetchResponse;
-    } catch (e) {
-      // Fetching didn't work get the resource from the cache.
-      const cachedResponse = await cache.match(event.request);
-
-      // And return it.
-      return cachedResponse;
+self.addEventListener('activate', (event) => {
+  console.log('[ServiceWorker] Activate');
+  event.waitUntil((async () => {
+    // Enable navigation preload if it's supported.
+    // See https://developers.google.com/web/updates/2017/02/navigation-preload
+    if ('navigationPreload' in self.registration) {
+      await self.registration.navigationPreload.enable();
     }
   })());
+
+  // Tell the active service worker to take control of the page immediately.
+  self.clients.claim();
+});
+
+self.addEventListener('fetch', function(event) {
+  // console.log('[Service Worker] Fetch', event.request.url);
+  if (event.request.mode === 'navigate') {
+    event.respondWith((async () => {
+      try {
+        const preloadResponse = await event.preloadResponse;
+        if (preloadResponse) {
+          return preloadResponse;
+        }
+
+        const networkResponse = await fetch(event.request);
+        return networkResponse;
+      } catch (error) {
+        console.log('[Service Worker] Fetch failed; returning offline page instead.', error);
+
+        const cache = await caches.open(CACHE_NAME);
+        const cachedResponse = await cache.match(OFFLINE_URL);
+        return cachedResponse;
+      }
+    })());
+  }
 });
