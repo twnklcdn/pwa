@@ -1,312 +1,43 @@
 <!DOCTYPE html>
-<html lang="en-US" dir="ltr">
+<html lang="en">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <link rel="shortcut icon" href="https://c.s-microsoft.com/favicon.ico?v2" />
+    <title>Hello!</title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- import the webpage's stylesheet -->
+    <link rel="stylesheet" href="style.css">
+    <!-- Manifest -->
     <link rel="manifest" href="manifest.json">
-    <title>My Sample PWA</title>
-  </head>
+  </head>  
   <body>
-    <h1>My Sample PWA</h1>
-    <a href="index.php">index2</a>
-    <script>
-if('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js');
-}
-</script>
+    <h1>
+      InstallableR
+    </h1>
+    
+    <p id="requireHTTPS" class="hidden">
+      <b>STOP!</b> This page <b>must</b> be served over HTTPS.
+      Please <a>reload this page via HTTPS</a>.
+    </p>
+    
+    <p>
+      Make me installable, follow the 
+      <a href="https://web.dev/codelab-make-installable/">instructions</a> here.
+    </p>
+    
+    <!-- Install button, hidden by default -->
+    <div id="installContainer" class="hidden">
+      <button id="butInstall" type="button">
+        Install
+      </button>
+    </div>
 
-Stack Overflow
-About
-Products
-For Teams
-Search…
-Join Stack Overflow to find the best answer to your technical question, help others answer theirs.
-
-Home
-PUBLIC
-Questions
-Tags
-Users
-Companies
-COLLECTIVES
-Explore Collectives
-TEAMS
-Stack Overflow for Teams – Start collaborating and sharing organizational knowledge. 
-Progressive Web App: How to detect and handle when connection is up again
-Asked 5 years, 6 months ago
-Modified 3 years, 9 months ago
-Viewed 26k times
-
-24
-
-
-With a PWA, we can handle when the device connection is down with offline mode. But how do we detect a fixed network connection and automatically reload/re-activate the application?
-
-javascriptprogressive-web-appsofflineapps
-Share
-Follow
-edited Mar 26, 2019 at 20:10
-tony19's user avatar
-tony19
-114k1616 gold badges191191 silver badges260260 bronze badges
-asked Jun 26, 2017 at 8:59
-Hank Phung's user avatar
-Hank Phung
-1,96311 gold badge2121 silver badges3737 bronze badges
-Add a comment
-4 Answers
-Sorted by:
-
-Highest score (default)
-
-56
-
-
-You could monitor the offline and online events, which are widely supported. Further, you could test connectivity by attempting to fetch HEAD from the target server URL:
-
-// Test this by running the code snippet below and then
-// use the "Offline" checkbox in DevTools Network panel
-
-window.addEventListener('online', handleConnection);
-window.addEventListener('offline', handleConnection);
-
-function handleConnection() {
-  if (navigator.onLine) {
-    isReachable(getServerUrl()).then(function(online) {
-      if (online) {
-        // handle online status
-        console.log('online');
-      } else {
-        console.log('no connectivity');
-      }
-    });
-  } else {
-    // handle offline status
-    console.log('offline');
-  }
-}
-
-function isReachable(url) {
-  /**
-   * Note: fetch() still "succeeds" for 404s on subdirectories,
-   * which is ok when only testing for domain reachability.
-   *
-   * Example:
-   *   https://google.com/noexist does not throw
-   *   https://noexist.com/noexist does throw
-   */
-  return fetch(url, { method: 'HEAD', mode: 'no-cors' })
-    .then(function(resp) {
-      return resp && (resp.ok || resp.type === 'opaque');
-    })
-    .catch(function(err) {
-      console.warn('[conn test failure]:', err);
-    });
-}
-
-function getServerUrl() {
-  return document.getElementById('serverUrl').value || window.location.origin;
-}
-<fieldset>
-  <label>
-    <span>Server URL for connectivity test:</span>
-    <input id="serverUrl" style="width: 100%">
-  </label>
-</fieldset>
-<script>document.getElementById('serverUrl').value = window.location.origin;</script>
-
-<p>
-  <i>Use Network Panel in DevTools to toggle Offline status</i>
-</p>
-Expand snippet
-One technique of handling this:
-
-Offline event
-
-show offline icon/status
-enable only features that are available offline (via cached data)
-Online event
-
-show online icon/status
-enable all features
-Share
-Follow
-edited Mar 26, 2019 at 20:03
-answered Jun 26, 2017 at 18:52
-tony19's user avatar
-tony19
-114k1616 gold badges191191 silver badges260260 bronze badges
-Add a comment
-
-27
-
-
-Be careful with the online event, that only tells the device if connected. It can be connected to a WiFi hotspot without actual Internet connectivity (because of credentials for example).
-
-Share
-Follow
-answered Jul 4, 2017 at 15:24
-Nicolas Hoizey's user avatar
-Nicolas Hoizey
-1,86411 gold badge1717 silver badges2424 bronze badges
-9
-You could ping your server when the online event is fired to verify you have access to your data. – 
-Michael Warner
- Jul 31, 2018 at 19:30
-Add a comment
-
-3
-
-
-A common practice in PWAs is to follow the Application Shell approach to your application. This would allow you to cache the Application Shell upon entry, and then load the data based upon the connection.
-
-The most common method for caching and serving in this approach is to serve from cache with fallback to network, where whenever the resource requested is not available in the cache then you send the request via the network and cache the response. Then serve from the cache.
-
-This allows for a more graceful degradation when you are on a spotty connection, such as on the train.
-
-An example of implementing this:
-
-const cacheName = "my-cache-v1"
-
-self.addEventListener('fetch', (event) => {
-  if (event.request.method === 'GET') {
-    event.respondWith(
-      caches.match(event.request).then((response) => {
-        if (response) {
-          return response;
-        }
-        return fetch(event.request).then((response) => {
-          return caches.open(cacheName).then((cache) => {
-            cache.put(event.request.url, response.clone());
-            return response;
-          });
-        });
-      })
-    );
-  }
-});
-In the above example (only one of the required steps in a Service Worker life cycle), you would also need to delete outdated cache entries.
-
-Share
-Follow
-edited Feb 23, 2018 at 13:31
-answered Nov 30, 2017 at 14:58
-LeonH's user avatar
-LeonH
-1,04122 gold badges2121 silver badges4545 bronze badges
-I agree with the offline first strategy, but Application Shell is only one of the architecture you can use. I don't think it's "the best practice" for PWAs. It depends a lot on the kind of site/app you're building. – 
-Nicolas Hoizey
- Feb 23, 2018 at 13:15
-Add a comment
-
-2
-
-
-Most of the services I've seen use the following practice: with an increasing to a certain value timeout, trying to contact the server. When the maximum timeout value is reached, an indicator with a manual recconect button appears which indicates in how many time the next attempt of reconnect will occur
-
-Share
-Follow
-answered Jun 26, 2017 at 9:10
-layonez's user avatar
-layonez
-1,69611 gold badge1515 silver badges2020 bronze badges
-Add a comment
-Your Answer
-Sign up or log in
-Post as a guest
-Name
-Email
-Required, but never shown
-
-By clicking “Post Your Answer”, you agree to our terms of service, privacy policy and cookie policy
-
-Not the answer you're looking for? Browse other questions tagged javascriptprogressive-web-appsofflineapps or ask your own question.
-The Overflow Blog
-Remote work is killing big offices. Cities must change to survive
-You should be reading academic computer science papers
-Featured on Meta
-Navigation and UI research starting soon
-2022 Community Moderator Election Results - now with two more mods!
-I'm standing down as a moderator
-Temporary policy: ChatGPT is banned
-Related
-1129
-How to force browsers to reload cached CSS and JS files?
-1827
-How do you use a variable in a regular expression?
-931
-Change the selected value of a drop-down list with jQuery
-3208
-event.preventDefault() vs. return false
-2192
-How to decide when to use Node.js?
-537
-Detect if device is iOS
-1153
-How to sort an object array by date property?
-1052
-How to dispatch a Redux action with a timeout?
-Hot Network Questions
-When was the term 'finishing school' first used?
-Where do screenshots go now that I've installed Ventura?
-How did the X-Men game for Sega Genesis have its state survive a console reset?
-Why do jet engines have a maximum speed?
-Is it possible to specify the size of the length and width of a plot separately?
-Did classic liberals believe in inheritance taxation and in welfare?
-Why is a linear representation of a quiver a functor?
-How can a NPC opponent be annoyed by barbarians in a barbarian-free game?
-Difference between sodium aluminate and sodium metaaluminate
-What was the shortest time between a historical event occuring and a museum opening dedicated to said event?
-in Twice NAT, why cant external network be advertised to private network?
-Beamer arrows to figure certian location
-Can I use a ServiceWorker to prevent an XSS attacker from gaining access to private user data?
-Searching motifs in sequence and their frequencies
-How do I know who planted "no dig" flags and when I can remove them?
-What is the best way to route a two-layer MCU based PCB?
-If the maximum size of a ZIP archive is 4 GB then how can I have a 33 GB ZIP archive?
-Count the number of features joined by shortest_line function conditioned
-Where do beta particles go after being emitted from the nucleus?
-What kind of nebulae was the Sun formed from?
-Why can I apply any excitation to a crystal (50, 60, 150 Hz) and any voltage and it will always output its natural frequency?
-Is it okay to have 2 definitions of the same term?
-Have I damaged my circuit board beyond repair?
-Python web scraper for Amazon customer reviews
- Question feed
-
-STACK OVERFLOW
-Questions
-Help
-PRODUCTS
-Teams
-Advertising
-Collectives
-Talent
-COMPANY
-About
-Press
-Work Here
-Legal
-Privacy Policy
-Terms of Service
-Contact Us
-Cookie Settings
-Cookie Policy
-STACK EXCHANGE NETWORK
-Technology
-Culture & recreation
-Life & arts
-Science
-Professional
-Business
-API
-Data
-Blog
-Facebook
-Twitter
-LinkedIn
-Instagram
-Site design / logo © 2022 Stack Exchange Inc; user contributions licensed under CC BY-SA. rev 2022.12.21.43127
-
+    <!-- import the webpage's javascript file -->
+    <script src="script.js" defer></script>
+    
+    <!-- include the Glitch button to show what the webpage is about and
+          to make it easier for folks to view source and remix -->
+    <div class="glitchButton" style="position:fixed;top:20px;right:20px;"></div>
+    <script src="https://button.glitch.me/button.js"></script>
   </body>
 </html>
